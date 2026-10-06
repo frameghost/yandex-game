@@ -1,0 +1,1372 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<meta name="theme-color" content="#0d1117">
+<title>Путь Жизни: Симулятор</title>
+<style>
+/* ============================================================
+   БАЗА / СБРОС
+   ============================================================ */
+*{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{height:100%}
+body{
+  font-family:'Inter','Roboto',-apple-system,BlinkMacSystemFont,'Segoe UI',system-ui,sans-serif;
+  background:#05070c radial-gradient(1200px 600px at 50% -10%,#141d33 0%,#0a0f1a 45%,#05070c 100%) no-repeat;
+  color:#e9edf5;
+  min-height:100vh;
+  overflow-x:hidden;
+  -webkit-font-smoothing:antialiased;
+}
+button{font-family:inherit;border:none;cursor:pointer;color:inherit;background:none}
+input{font-family:inherit}
+::-webkit-scrollbar{width:5px;height:5px}
+::-webkit-scrollbar-thumb{background:#2b3550;border-radius:10px}
+::-webkit-scrollbar-track{background:transparent}
+
+/* ============================================================
+   КАРКАС (моб. 480px, центрирование на десктопе)
+   ============================================================ */
+.app{max-width:480px;margin:0 auto;min-height:100vh;display:flex;flex-direction:column;position:relative;padding-bottom:env(safe-area-inset-bottom)}
+.screen{display:none;flex:1;flex-direction:column;padding:14px 14px 12px;animation:fadeIn .28s ease}
+.screen.active{display:flex}
+@keyframes fadeIn{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+@keyframes popIn{from{opacity:0;transform:scale(.92)}to{opacity:1;transform:scale(1)}}
+
+/* ============================================================
+   ЭКРАН ВЫБОРА ПЕРСОНАЖА
+   ============================================================ */
+.start-hero{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:18px;text-align:center}
+.game-title{font-size:30px;font-weight:900;letter-spacing:-.5px;line-height:1.15;
+  background:linear-gradient(120deg,#7dd3fc,#a78bfa 45%,#f472b6);-webkit-background-clip:text;background-clip:text;color:transparent}
+.game-sub{color:#8b96ad;font-size:14px;max-width:320px;line-height:1.5}
+.gender-row{display:flex;gap:12px;width:100%;max-width:360px}
+.gender-card{flex:1;background:#131a2b;border:2px solid #232e4a;border-radius:20px;padding:14px 10px;display:flex;flex-direction:column;align-items:center;gap:10px;transition:.2s}
+.gender-card.sel{border-color:#6366f1;background:#1b2140;box-shadow:0 0 0 4px rgba(99,102,241,.18),0 10px 26px rgba(0,0,0,.45)}
+.gender-card .gc-label{font-weight:800;font-size:15px}
+.name-field{width:100%;max-width:360px;display:flex;flex-direction:column;gap:7px;text-align:left}
+.field-label{font-size:12px;font-weight:700;color:#8b96ad;text-transform:uppercase;letter-spacing:.6px}
+.text-input{width:100%;background:#131a2b;border:2px solid #232e4a;border-radius:14px;color:#fff;font-size:17px;font-weight:700;padding:13px 15px;outline:none;transition:.2s}
+.text-input:focus{border-color:#6366f1}
+.btn-primary{width:100%;max-width:360px;background:linear-gradient(135deg,#6366f1,#8b5cf6);color:#fff;font-size:18px;font-weight:900;padding:16px;border-radius:16px;box-shadow:0 10px 26px rgba(99,102,241,.4);transition:.15s}
+.btn-primary:active{transform:scale(.97)}
+
+/* ============================================================
+   ШАПКА ГЛАВНОГО ЭКРАНА
+   ============================================================ */
+.topbar{display:flex;gap:12px;align-items:center;background:linear-gradient(180deg,#161d31,#111726);
+  border:1px solid #232e4a;border-radius:20px;padding:11px 12px;box-shadow:0 8px 22px rgba(0,0,0,.35)}
+.avatar-wrap{width:74px;height:74px;flex:0 0 74px;border-radius:16px;padding:2px;
+  background:conic-gradient(from 210deg,#6366f1,#22d3ee,#a3e635,#f472b6,#6366f1);position:relative}
+.avatar-frame{width:100%;height:100%;border-radius:14px;overflow:hidden;background:#1b2338;display:block}
+.id-block{flex:1;min-width:0;display:flex;flex-direction:column;gap:3px}
+.p-name{font-size:19px;font-weight:900;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.p-age{font-size:12.5px;color:#9aa6bf;font-weight:600}
+.p-status{font-size:12px;color:#7dd3fc;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.hbtns{display:flex;flex-direction:column;gap:7px}
+.icon-btn{width:40px;height:40px;border-radius:13px;background:#1b2338;border:1px solid #2b3550;font-size:18px;display:flex;align-items:center;justify-content:center;transition:.15s}
+.icon-btn:active{transform:scale(.92)}
+.balance-bar{margin-top:10px;display:flex;align-items:center;justify-content:space-between;gap:8px;
+  background:#0f1524;border:1px solid #232e4a;border-radius:16px;padding:11px 15px}
+.bal-label{font-size:11px;font-weight:800;color:#8b96ad;text-transform:uppercase;letter-spacing:.7px}
+.bal-value{font-size:23px;font-weight:900;color:#34d399;font-variant-numeric:tabular-nums;letter-spacing:-.3px}
+.bal-value.neg{color:#f87171}
+.passive-chip{font-size:11px;font-weight:800;color:#fbbf24;background:rgba(251,191,36,.12);border:1px solid rgba(251,191,36,.3);padding:4px 9px;border-radius:999px;white-space:nowrap}
+
+/* ============================================================
+   ШКАЛЫ СОСТОЯНИЯ
+   ============================================================ */
+.stats{margin-top:10px;display:flex;flex-direction:column;gap:9px;background:#101625;border:1px solid #232e4a;border-radius:18px;padding:12px 14px}
+.stat-row{display:flex;align-items:center;gap:10px}
+.stat-ico{font-size:17px;width:22px;text-align:center;flex:0 0 22px}
+.stat-name{font-size:12px;font-weight:700;color:#9aa6bf;width:74px;flex:0 0 74px}
+.track{flex:1;height:11px;background:#1c2438;border-radius:999px;overflow:hidden}
+.fill{height:100%;border-radius:999px;transition:width .45s cubic-bezier(.22,1,.36,1)}
+.stat-val{font-size:12.5px;font-weight:900;width:40px;text-align:right;flex:0 0 40px;font-variant-numeric:tabular-nums}
+.f-green{background:linear-gradient(90deg,#22c55e,#4ade80)}
+.f-lime{background:linear-gradient(90deg,#84cc16,#a3e635)}
+.f-yellow{background:linear-gradient(90deg,#eab308,#facc15)}
+.f-orange{background:linear-gradient(90deg,#f97316,#fb923c)}
+.f-red{background:linear-gradient(90deg,#dc2626,#f87171)}
+.t-green{color:#4ade80}.t-lime{color:#a3e635}.t-yellow{color:#facc15}.t-orange{color:#fb923c}.t-red{color:#f87171}
+
+/* ============================================================
+   ЖУРНАЛ СОБЫТИЙ
+   ============================================================ */
+.log-panel{margin-top:10px;background:#0f1524;border:1px solid #232e4a;border-radius:18px;padding:11px 13px}
+.panel-title{font-size:11px;font-weight:900;color:#8b96ad;text-transform:uppercase;letter-spacing:.8px;margin-bottom:8px;display:flex;align-items:center;gap:6px}
+.event-log{display:flex;flex-direction:column;gap:6px;max-height:118px;overflow-y:auto;overscroll-behavior:contain}
+.ev{font-size:12.5px;line-height:1.45;color:#c6cede;background:#141c2e;border-left:3px solid #3b4a6e;border-radius:8px;padding:7px 10px;animation:popIn .25s ease}
+.ev.good{border-left-color:#22c55e}.ev.bad{border-left-color:#ef4444}.ev.info{border-left-color:#6366f1}.ev.money{border-left-color:#fbbf24}
+.ev-date{color:#7482a0;font-weight:800;font-size:10.5px;margin-right:6px}
+
+/* ============================================================
+   ВКЛАДКИ
+   ============================================================ */
+.tabs{margin-top:10px;display:flex;gap:6px;background:#0d1322;border:1px solid #232e4a;border-radius:16px;padding:5px}
+.tab{flex:1;padding:9px 2px;border-radius:12px;font-size:16px;text-align:center;opacity:.5;transition:.18s;line-height:1}
+.tab.on{background:linear-gradient(135deg,#273052,#1d2540);opacity:1;box-shadow:0 4px 12px rgba(0,0,0,.35);border:1px solid #39456b}
+.tab small{display:block;font-size:8.5px;font-weight:800;letter-spacing:.3px;margin-top:2px;color:#9aa6bf}
+.tab.on small{color:#c7d2fe}
+.pages{flex:1;margin-top:10px;display:flex;flex-direction:column;min-height:0}
+.page{display:none;flex-direction:column;gap:9px;overflow-y:auto;padding-bottom:6px;flex:1;min-height:0}
+.page.active{display:flex}
+.group-head{font-size:11px;font-weight:900;color:#7c89a6;text-transform:uppercase;letter-spacing:.8px;margin-top:6px;padding-left:2px}
+
+/* ============================================================
+   КАРТОЧКИ ДЕЙСТВИЙ
+   ============================================================ */
+.card{background:linear-gradient(180deg,#151d31,#121828);border:1px solid #263250;border-radius:16px;padding:12px 13px;display:flex;flex-direction:column;gap:8px}
+.card-top{display:flex;align-items:flex-start;justify-content:space-between;gap:8px}
+.card-title{font-size:15px;font-weight:800;display:flex;align-items:center;gap:7px}
+.card-income{font-size:13px;font-weight:900;color:#34d399;white-space:nowrap}
+.card-income.zero{color:#8b96ad}
+.card-desc{font-size:12px;color:#94a1bd;line-height:1.5}
+.chips{display:flex;flex-wrap:wrap;gap:5px}
+.chip{font-size:10.5px;font-weight:800;padding:4px 9px;border-radius:999px;background:#1c2438;border:1px solid #2f3b5c;color:#aab6d3}
+.chip.ok{background:rgba(34,197,94,.13);border-color:rgba(34,197,94,.4);color:#4ade80}
+.chip.no{background:rgba(239,68,68,.12);border-color:rgba(239,68,68,.4);color:#f87171}
+.chip.gold{background:rgba(251,191,36,.12);border-color:rgba(251,191,36,.4);color:#fbbf24}
+.card-actions{display:flex;gap:8px;align-items:center}
+.btn{flex:1;padding:11px 12px;border-radius:12px;font-size:14px;font-weight:800;text-align:center;transition:.15s;border:1px solid transparent}
+.btn:active{transform:scale(.97)}
+.btn-buy{background:linear-gradient(135deg,#6366f1,#8b5cf6);color:#fff;box-shadow:0 6px 16px rgba(99,102,241,.35)}
+.btn-hire{background:linear-gradient(135deg,#059669,#10b981);color:#fff;box-shadow:0 6px 16px rgba(16,185,129,.3)}
+.btn-fire{background:#2a1520;border-color:#5b2436;color:#fda4af}
+.btn-sel{background:#1c2438;border-color:#33406a;color:#c7d2fe}
+.btn-on{background:linear-gradient(135deg,#0ea5e9,#6366f1);color:#fff;box-shadow:0 6px 16px rgba(14,165,233,.35)}
+.btn-disabled{background:#161c2c;border-color:#242e48;color:#5b6884;pointer-events:none}
+.card-owned{outline:2px solid rgba(52,211,153,.5);outline-offset:-2px}
+.card-activejob{outline:2px solid rgba(99,102,241,.6);outline-offset:-2px}
+.progress-mini{height:8px;background:#1c2438;border-radius:999px;overflow:hidden}
+.progress-mini .fill{background:linear-gradient(90deg,#38bdf8,#6366f1)}
+.mini-note{font-size:11.5px;color:#7dd3fc;font-weight:700}
+
+/* ============================================================
+   НИЖНЯЯ ПАНЕЛЬ
+   ============================================================ */
+.bottom-dock{position:sticky;bottom:0;margin-top:10px;padding:10px 0 calc(10px + env(safe-area-inset-bottom));
+  background:linear-gradient(180deg,rgba(5,7,12,0),rgba(5,7,12,.92) 35%);}
+.btn-month{width:100%;padding:19px;border-radius:20px;font-size:20px;font-weight:900;letter-spacing:.3px;color:#fff;
+  background:linear-gradient(135deg,#f59e0b,#ef4444 55%,#ec4899);
+  box-shadow:0 14px 34px rgba(239,68,68,.42),inset 0 1px 0 rgba(255,255,255,.25);
+  animation:pulseGlow 2.6s ease-in-out infinite;transition:.12s}
+.btn-month:active{transform:scale(.97)}
+@keyframes pulseGlow{0%,100%{box-shadow:0 14px 34px rgba(239,68,68,.42),inset 0 1px 0 rgba(255,255,255,.25)}
+  50%{box-shadow:0 14px 44px rgba(236,72,153,.65),inset 0 1px 0 rgba(255,255,255,.25)}}
+
+/* ============================================================
+   МОДАЛЬНЫЕ ОКНА
+   ============================================================ */
+.modal-back{position:fixed;inset:0;background:rgba(3,5,10,.78);backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px);
+  display:none;align-items:center;justify-content:center;z-index:60;padding:18px;animation:fadeIn .2s ease}
+.modal-back.open{display:flex}
+.modal{width:100%;max-width:420px;max-height:88vh;overflow-y:auto;background:linear-gradient(180deg,#18203a,#111726);
+  border:1px solid #303d63;border-radius:24px;padding:20px 18px;display:flex;flex-direction:column;gap:13px;animation:popIn .28s cubic-bezier(.22,1,.36,1);box-shadow:0 24px 70px rgba(0,0,0,.6)}
+.modal h2{font-size:20px;font-weight:900;text-align:center;line-height:1.3}
+.modal .m-sub{font-size:13px;color:#94a1bd;text-align:center;line-height:1.55}
+.m-close{align-self:center;background:#1c2438;border:1px solid #33406a;border-radius:12px;padding:12px 26px;font-size:14px;font-weight:800;color:#c7d2fe}
+.danger-title{color:#f87171}
+.crisis-icon{font-size:44px;text-align:center}
+.shop-item{display:flex;justify-content:space-between;align-items:center;gap:10px;background:#141c2e;border:1px solid #263250;border-radius:14px;padding:11px 13px}
+.shop-item .si-t{font-size:14px;font-weight:800}
+.shop-item .si-d{font-size:11.5px;color:#94a1bd;margin-top:2px}
+.row-line{display:flex;justify-content:space-between;font-size:13.5px;padding:7px 2px;border-bottom:1px dashed #263250}
+.row-line b{font-variant-numeric:tabular-nums}
+.final-stats{background:#141c2e;border:1px solid #263250;border-radius:16px;padding:6px 13px}
+
+/* ============================================================
+   CSS-ПЛЕЙСХОЛДERS ДЛЯ АВАТАРОВ (fallback при отсутствии png)
+   ============================================================ */
+.avatar-fallback{width:100%;height:100%;display:flex;align-items:center;justify-content:center;font-size:34px;font-weight:900;
+  background:linear-gradient(145deg,#312e81,#1e3a8a);color:#c7d2fe;border-radius:14px}
+.avatar-fallback.f-poor{background:linear-gradient(145deg,#4b3621,#2a1f14);color:#fbbf24}
+.avatar-fallback.f-sick{background:linear-gradient(145deg,#134e4a,#0f2e2c);color:#5eead4}
+
+/* Toast */
+.toast{position:fixed;left:50%;bottom:110px;transform:translateX(-50%) translateY(20px);background:#1e293f;border:1px solid #3b4a6e;
+  color:#e9edf5;font-size:13.5px;font-weight:700;padding:12px 20px;border-radius:14px;opacity:0;pointer-events:none;transition:.3s;z-index:90;max-width:88vw;text-align:center;box-shadow:0 12px 30px rgba(0,0,0,.5)}
+.toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+</style>
+<!-- Yandex Games SDK -->
+<script src="https://yandex.ru/games/sdk/v2"></script>
+</head>
+<body>
+<div class="app">
+
+  <!-- ==================== ЭКРАН 1: ВЫБОР ПЕРСОНАЖА ==================== -->
+  <section class="screen" id="screen-start">
+    <div class="start-hero">
+      <div style="font-size:56px">🌱</div>
+      <h1 class="game-title">Путь Жизни<br>Симулятор</h1>
+      <p class="game-sub">Тебе 14 лет. Выбери персонажа и проживи жизнь: от сбора бутылок до IT-империи.</p>
+      <div class="gender-row">
+        <button class="gender-card sel" id="g-boy" onclick="StartScreen.pickGender('boy')">
+          <span class="avatar-frame" id="prev-boy-holder"></span>
+          <span class="gc-label">👦 Парень</span>
+        </button>
+        <button class="gender-card" id="g-girl" onclick="StartScreen.pickGender('girl')">
+          <span class="avatar-frame" id="prev-girl-holder"></span>
+          <span class="gc-label">👧 Девушка</span>
+        </button>
+      </div>
+      <div class="name-field">
+        <label class="field-label" for="inp-name">Имя персонажа</label>
+        <input class="text-input" id="inp-name" maxlength="16" autocomplete="off" spellcheck="false" placeholder="Алексей">
+      </div>
+      <button class="btn-primary" onclick="StartScreen.begin()">Начать жизнь 🚀</button>
+    </div>
+  </section>
+
+  <!-- ==================== ЭКРАН 2: ГЛАВНЫЙ ИГРОВОЙ ЭКРАН ==================== -->
+  <section class="screen" id="screen-game">
+    <header class="topbar">
+      <div class="avatar-wrap"><span class="avatar-frame" id="main-avatar"></span></div>
+      <div class="id-block">
+        <div class="p-name" id="hud-name">—</div>
+        <div class="p-age" id="hud-age">—</div>
+        <div class="p-status" id="hud-status">—</div>
+      </div>
+      <div class="hbtns">
+        <button class="icon-btn" onclick="UI.openSettings()" title="Настройки">⚙️</button>
+        <button class="icon-btn" onclick="UI.openShop()" title="Магазин">💎</button>
+      </div>
+    </header>
+
+    <div class="balance-bar">
+      <div>
+        <div class="bal-label">Баланс</div>
+        <div class="bal-value" id="hud-balance">0 ₽</div>
+      </div>
+      <div class="passive-chip" id="hud-passive" style="display:none">+0 ₽/мес</div>
+    </div>
+
+    <div class="stats">
+      <div class="stat-row">
+        <span class="stat-ico">🍔</span><span class="stat-name">Сытость</span>
+        <div class="track"><div class="fill f-green" id="bar-food" style="width:70%"></div></div>
+        <span class="stat-val t-green" id="val-food">70%</span>
+      </div>
+      <div class="stat-row">
+        <span class="stat-ico">❤️</span><span class="stat-name">Здоровье</span>
+        <div class="track"><div class="fill f-green" id="bar-health" style="width:80%"></div></div>
+        <span class="stat-val t-green" id="val-health">80%</span>
+      </div>
+      <div class="stat-row">
+        <span class="stat-ico">😊</span><span class="stat-name">Настроение</span>
+        <div class="track"><div class="fill f-green" id="bar-mood" style="width:65%"></div></div>
+        <span class="stat-val t-green" id="val-mood">65%</span>
+      </div>
+    </div>
+
+    <div class="log-panel">
+      <div class="panel-title">📜 Журнал жизни</div>
+      <div class="event-log" id="event-log"></div>
+    </div>
+
+    <nav class="tabs">
+      <button class="tab on" data-tab="work" onclick="UI.switchTab('work')">💼<small>РАБОТА</small></button>
+      <button class="tab" data-tab="home" onclick="UI.switchTab('home')">🏠<small>БЫТ</small></button>
+      <button class="tab" data-tab="dev" onclick="UI.switchTab('dev')">🎓<small>РАЗВИТИЕ</small></button>
+      <button class="tab" data-tab="biz" onclick="UI.switchTab('biz')">📈<small>БИЗНЕС</small></button>
+    </nav>
+
+    <main class="pages">
+      <div class="page active" id="page-work"></div>
+      <div class="page" id="page-home"></div>
+      <div class="page" id="page-dev"></div>
+      <div class="page" id="page-biz"></div>
+    </main>
+
+    <div class="bottom-dock">
+      <button class="btn-month" onclick="Game.playMonth()">Прожить 1 месяц ▶</button>
+    </div>
+  </section>
+</div>
+
+<!-- Модальные окна -->
+<div class="modal-back" id="modal-back"><div class="modal" id="modal-body"></div></div>
+<div class="toast" id="toast"></div>
+
+<script>
+'use strict';
+/* ============================================================================
+   «ПУТЬ ЖИЗНИ: СИМУЛЯТОР» — монолитный браузерный симулятор жизни.
+   Чистый ES6, без внешних библиотек. Интеграция с Яндекс Играми (SDK v2)
+   с graceful-фоллбэком для запуска обычным браузером.
+   ============================================================================ */
+
+/* ---------------------------------------------------------------------------
+   0. ЯНДЕКС SDK — ОБЁРТКА (игра работает и без него, в обычном браузере)
+--------------------------------------------------------------------------- */
+const Yx = (() => {
+  let sdk = null, ready = false, loadingHidden = false, gameReadySent = false;
+
+  function init(){
+    try {
+      if (typeof YaGames !== 'undefined' && YaGames.init) {
+        YaGames.init().then(s => { sdk = s; ready = true; hideLoading(); })
+                     .catch(() => { ready = false; });
+      }
+    } catch (e) { /* вне песочницы Яндекса — работаем в обычном браузере */ }
+  }
+
+  function hideLoading(){
+    if (ready && !loadingHidden){
+      loadingHidden = true;
+      try { sdk.features.LoadingAPI && sdk.features.LoadingAPI.ready(); } catch (e) {}
+    }
+  }
+
+  return {
+    init,
+    gameReady(){
+      hideLoading();
+      if (ready && !gameReadySent){
+        gameReadySent = true;
+        try { sdk.gameReady(); } catch (e) {}
+      }
+    },
+    gameplayStart(){ try { if (ready) sdk.gameplayStart(); } catch (e) {} },
+    gameplayStop(){  try { if (ready) sdk.gameplayStop();  } catch (e) {} },
+    /* Показать rewarded-рекламу. cb(true) — просмотрено до конца, cb(false) — отказ/ошибка. */
+    showReward(cb){
+      if (!ready){
+        // Вне Яндекса: имитируем успешный просмотр с небольшой задержкой.
+        setTimeout(() => cb(true), 600);
+        return;
+      }
+      this.gameplayStop();
+      try {
+        sdk.getAdv({ advId: 'video', slot: 'rewardedVideoAds' })
+           .then(player => player.show({
+              onRejection: () => cb(false),
+              onClose: (wasShown, error) => { this.gameplayStart(); cb(!!wasShown && !error); }
+           }))
+           .catch(() => { this.gameplayStart(); cb(false); });
+      } catch (e) { this.gameplayStart(); cb(false); }
+    }
+  };
+})();
+
+/* ---------------------------------------------------------------------------
+   1. КОНСТАНТЫ И СПРАВОЧНИКИ ДАННЫХ
+--------------------------------------------------------------------------- */
+const SAVE_KEY = 'life_sim_save_v1';
+
+const FOODS = [
+  { id:'starve', name:'Голодовка',            icon:'🚫', price:0,     food:-25, health:-15, mood:0,
+    desc:'Ноль расходов. Организм работает на износ.' },
+  { id:'doshik', name:'Лапша б/п',             icon:'🍜', price:3000,  food:30,  health:-5,  mood:0,
+    desc:'Дешёвая и сердитая. Но здоровье подтачивает.' },
+  { id:'lunch',  name:'Бизнес-ланчи',          icon:'🍱', price:15000, food:70,  health:2,   mood:5,
+    desc:'Сытно, вкусно, по-человечески.' },
+  { id:'rest',   name:'Рестораны',             icon:'🥩', price:45000, food:100, health:5,   mood:20,
+    desc:'Идеальная форма и кайф каждый день.' }
+];
+
+const HOMES = [
+  { id:'porch',  name:'Подъезд',               icon:'🌃', price:0,     health:-20, mood:-20,
+    desc:'Бесплатно. Холод, соседи-алкоголики, постоянный стресс.' },
+  { id:'dorm',   name:'Комната в общаге',      icon:'🛏️', price:10000, health:-4,  mood:-4,
+    desc:'База студента: шумно, тесно, но крыша есть.' },
+  { id:'rent',   name:'Съёмная однушка',       icon:'🔑', price:30000, health:4,   mood:8,
+    desc:'Своя территория, комфорт и спокойствие.' },
+  { id:'own',    name:'Своя квартира',         icon:'🏢', price:0,     buyPrice:4000000, health:10, mood:15,
+    desc:'Покупается один раз за 4 000 000 ₽. Комфорт и стабильность навсегда.' }
+];
+
+const JOBS = [
+  { id:'bottles',  cat:'street', name:'Сбор бутылок',           icon:'🍾', salary:1500,
+    energyReq:0,  foodCost:10, moodCost:10,
+    desc:'Работа улицы: +1 500 ₽/мес, −10 сытости и −10 настроения каждый месяц.',
+    reqs:[ { txt:'Нет требований', ok:true } ] },
+  { id:'flyers',   cat:'street', name:'Раздача листовок',       icon:'📄', salary:12000,
+    energyReq:30, foodCost:6,  moodCost:4,
+    desc:'+12 000 ₽/мес. Требуется энергия (сытость) выше 30%.',
+    reqs:[ { txt:'Сытость > 30%', type:'energy', value:30 } ] },
+  { id:'pizza',    cat:'entry',  name:'Помощник повара (пиццерия)', icon:'🍕', salary:35000,
+    energyReq:0,  foodCost:4,  moodCost:2,
+    desc:'+35 000 ₽/мес. Первая нормальная работа.',
+    reqs:[ { txt:'Закончить школу (18 лет)', type:'school' } ] },
+  { id:'manager',  cat:'career', name:'Младший менеджер',       icon:'👔', salary:75000,
+    energyReq:0,  foodCost:5,  moodCost:6,
+    desc:'+75 000 ₽/мес. Офис, планёрки, KPI.',
+    reqs:[ { txt:'Закончить школу', type:'school' }, { txt:'Онлайн-курсы IT/Бизнеса', type:'courses' } ] },
+  { id:'dev',      cat:'career', name:'Веб-разработчик',        icon:'💻', salary:160000,
+    energyReq:0,  foodCost:4,  moodCost:4,
+    desc:'+160 000 ₽/мес. Удалёнка, дедлайны, сильный доход.',
+    reqs:[ { txt:'Онлайн-курсы IT/Бизнеса', type:'courses' }, { txt:'Личный компьютер', type:'pc' } ] },
+  { id:'director', cat:'career', name:'Руководитель филиала',   icon:'🏛️', salary:350000,
+    energyReq:0,  foodCost:4,  moodCost:8,
+    desc:'+350 000 ₽/мес. Вершина карьеры наёмного работника.',
+    reqs:[ { txt:'Диплом университета', type:'edu' }, { txt:'Онлайн-курсы IT/Бизнеса', type:'courses' } ] }
+];
+
+const BUSINESSES = [
+  { id:'vending',   name:'Кофейный автомат',  icon:'☕', price:150000,  income:12000,
+    desc:'Ставишь у БЦ — кофе льётся денежным потоком.' },
+  { id:'pizzeria',  name:'Пиццерия по франшизе', icon:'🍕', price:1200000, income:95000,
+    desc:'Известный бренд, готовый бизнес под ключ.' },
+  { id:'startup',   name:'IT-стартап',        icon:'🚀', price:5000000, income:450000,
+    desc:'Серийный предприниматель. Пассивный доход уровня бог.' }
+];
+
+const SHOP_BOOSTS = [
+  { id:'pc',        name:'💻 Личный компьютер',        price:45000,  repeat:false,
+    desc:'Открывает работу веб-разработчика и видеоигры дома.',
+    effect:s=>{ s.hasPC = true; } },
+  { id:'console',   name:'🎮 Игровая консоль',          price:35000,  repeat:false,
+    desc:'+10 ко всем активностям отдыха.',
+    effect:s=>{ s.hasConsole = true; } },
+  { id:'vitamins',  name:'💊 Курс витаминов',           price:6000,   repeat:true,
+    desc:'+15 здоровья сразу.',
+    effect:s=>{ s.health = clamp(s.health+15); } },
+  { id:'psy',       name:'🧘 Психолог (сеанс)',         price:9000,   repeat:true,
+    desc:'+30 настроения сразу.',
+    effect:s=>{ s.mood = clamp(s.mood+30); } },
+  { id:'medcard',   name:'🏥 Годовая медкарта',         price:60000,  repeat:false,
+    desc:'−50% цена вызова врача и платной клиники.',
+    effect:s=>{ s.medCard = true; } },
+  { id:'luck',      name:'🍀 Талисманы удачи',          price:120000, repeat:false,
+    desc:'Шанс хорошего случайного события повышен.',
+    effect:s=>{ s.lucky = true; } }
+];
+
+const RANDOM_EVENTS = [
+  { w:3, good:true,  money:10000,  txt:'🎰 Вы выиграли в лотерею 10 000 ₽!' },
+  { w:2, good:false, money:-7000,  txt:'📱 Сломался телефон — ремонт обошёлся в 7 000 ₽.' },
+  { w:2, good:true,  money:8000,   txt:'🧾 Знакомый предложил подработку: +8 000 ₽.' },
+  { w:2, good:false, food:-20,     txt:'🤢 Отравились шаурмой: сытость −20%.' },
+  { w:2, good:true,  mood:20,      txt:'☀️ Идеальная погода для прогулки: настроение +20%.' },
+  { w:2, good:false, mood:-15,     txt:'🚗 Хам на дороге испортил весь день: −15% настроения.' },
+  { w:1, good:true,  health:10,    txt:'🩺 Прошли диспансеризацию раннее: здоровье +10%.' },
+  { w:1, good:false, money:-15000, txt:'🚽 Прорвало трубу у соседей снизу: штраф 15 000 ₽.' },
+  { w:1, good:true,  money:30000,  txt:'💼 Заказчик переплатил за проект: +30 000 ₽.' },
+  { w:1, good:false, health:-10,   txt:'🦠 Подхватили грипп: здоровье −10%.' },
+  { w:1, good:true,  mood:15, money:5000, txt:'🎁 Родственники подарили деньги и приятные эмоции (+5 000 ₽).' },
+  { w:1, good:false, food:-10, mood:-10, txt:'🌧️ Затопило кухню, ужин испорчен: −10% сытости и настроения.' },
+  { w:1, good:true,  health:5, mood:10,  txt:'🐶 Гуляли с собакой соседки: +5% здоровья, +10% настроения.' },
+  { w:1, good:false, money:-4000, txt:'🚕 Таксист обманул на счётчике: −4 000 ₽.' },
+  { w:1, good:true,  money:2000,  txt:'♻️ Нашли редкую монету в кармане куртки: +2 000 ₽.' }
+];
+
+/* ---------------------------------------------------------------------------
+   2. УТИЛИТЫ
+--------------------------------------------------------------------------- */
+function clamp(v,min=0,max=100){ return Math.max(min, Math.min(max, Math.round(v))); }
+function fmtMoney(n){
+  const neg = n < 0 ? '−' : '';
+  return neg + Math.abs(Math.round(n)).toString().replace(/\B(?=(\d{3})+(?!\d))/g,' ') + ' ₽';
+}
+function plural(n, one, few, many){
+  const m10 = n % 10, m100 = n % 100;
+  if (m10 === 1 && m100 !== 11) return one;
+  if (m10 >= 2 && m10 <= 4 && (m100 < 10 || m100 >= 20)) return few;
+  return many;
+}
+function yearsLabel(y){ return y + ' ' + plural(y,'год','года','лет'); }
+function monthsLabel(m){ return m + ' ' + plural(m,'месяц','месяца','месяцев'); }
+function $(id){ return document.getElementById(id); }
+function esc(s){ return String(s).replace(/[&<>"]/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
+
+let toastTimer = null;
+function toast(msg){
+  const t = $('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(()=>t.classList.remove('show'), 2300);
+}
+
+/* ---------------------------------------------------------------------------
+   3. АВАТАРЫ — имена файлов + CSS-фоллбэк, если картинка не загрузилась
+--------------------------------------------------------------------------- */
+function avatarFile(s){
+  const ageBand = s.age < 18 ? 'teen' : s.age < 25 ? 'student' : s.age < 60 ? 'adult' : 'elder';
+  if (s.inHospital || s.health < 20) return 'sick_' + s.gender + '.png';
+  if (s.isPoor) return 'poor_' + s.gender + '.png';
+  return 'avatar_' + s.gender + '_' + ageBand + '.png';
+}
+function avatarFallbackMeta(s){
+  if (s.inHospital || s.health < 20) return { cls:'f-sick', ch:'🏥', label:'Больница' };
+  if (s.isPoor) return { cls:'f-poor', ch:'🥀', label:'Бедность' };
+  const band = s.age < 18 ? 'teen' : s.age < 25 ? 'student' : s.age < 60 ? 'adult' : 'elder';
+  return { cls:'', ch:(s.gender==='boy'?'👦':'👧'), label:band };
+}
+function mountAvatar(container, file, fallbackCls, ch){
+  container.innerHTML = '';
+  const img = document.createElement('img');
+  img.alt = 'Аватар персонажа';
+  img.style.cssText = 'width:100%;height:100%;object-fit:cover;display:block;border-radius:14px';
+  img.draggable = false;
+  img.onerror = () => {
+    img.remove();
+    const fb = document.createElement('span');
+    fb.className = 'avatar-fallback ' + fallbackCls;
+    fb.textContent = ch;
+    container.appendChild(fb);
+  };
+  img.src = file;
+  container.appendChild(img);
+}
+
+/* ---------------------------------------------------------------------------
+   4. СОСТОЯНИЕ ИГРЫ + СОХРАНЕНИЯ
+--------------------------------------------------------------------------- */
+function newGameState(gender, name){
+  return {
+    version: 1,
+    gender, name,
+    age: 14, monthIdx: 0,              // monthIdx 0..11
+    money: 0,
+    food: 70, health: 80, mood: 65,
+    job: null,
+    foodPlan: 'doshik', homePlan: 'porch',
+    ownsApartment: false, hasPC: false, hasConsole: false, medCard: false, lucky: false,
+    schoolDone: false,                // аттестат в 18 лет
+    isPoor: false,                    // режим бедности (кэш для аватаров/статуса)
+    coursesMonths: 0, coursesDone: false,
+    uniYear: 0, eduDone: false,
+    businesses: {},                   // {id: count}
+    diagnoses: [],                    // ["Гипертония", ...]
+    inHospital: false,
+    totalEarned: 0, totalSpent: 0, actionsTaken: 0,
+    log: [],
+    alive: true, causeOfDeath: '', bestStatus: ''
+  };
+}
+
+const Save = {
+  load(){
+    try{
+      const raw = localStorage.getItem(SAVE_KEY);
+      if (!raw) return null;
+      const obj = JSON.parse(raw);
+      if (!obj || typeof obj !== 'object' || obj.version !== 1 || !obj.gender || typeof obj.age !== 'number') return null;
+      // Мягкая миграция недостающих полей:
+      const def = newGameState(obj.gender, obj.name || 'Алексей');
+      for (const k in def) if (!(k in obj)) obj[k] = def[k];
+      return obj;
+    }catch(e){ return null; }
+  },
+  save(s){
+    try{ localStorage.setItem(SAVE_KEY, JSON.stringify(s)); }catch(e){ /* приватный режим — молча игнорируем */ }
+  },
+  clear(){ try{ localStorage.removeItem(SAVE_KEY); }catch(e){} }
+};
+
+/* ---------------------------------------------------------------------------
+   5. ПРОИЗВОДНЫЕ ВЕЛИЧИНЫ
+--------------------------------------------------------------------------- */
+function curFood(){ return FOODS.find(f=>f.id===S.foodPlan) || FOODS[0]; }
+function curHome(){ return HOMES.find(h=>h.id===S.homePlan) || HOMES[0]; }
+function curJob(){ return S.job ? JOBS.find(j=>j.id===S.job) : null; }
+function passiveIncome(){
+  let p = 0;
+  for (const b of BUSINESSES) p += (S.businesses[b.id] || 0) * b.income;
+  return p;
+}
+function monthlyExpenses(){ return curFood().price + curHome().price; }
+function isPoorState(){ return S.money < 0 || (S.homePlan === 'porch' && !S.schoolDone && S.age >= 18); }
+function statusLine(){
+  if (S.inHospital) return '🏥 Госпитализирован(а)';
+  if (S.isPoor) return '😓 Режим бедности';
+  const j = curJob();
+  if (j) return '💼 ' + j.name;
+  if (passiveIncome() > 0) return '📈 Предприниматель';
+  if (S.uniYear > 0 && S.uniYear < 4) return '🎓 Студент (' + (S.uniYear+1) + '-й курс)';
+  if (S.eduDone) return '🎓 Специалист с высшим образованием';
+  if (S.coursesDone) return '📜 Специалист после онлайн-курсов';
+  if (!S.schoolDone && S.age < 18) return '🧑‍🎓 Школьник';
+  return '🚪 Без работы';
+}
+function jobUnlocked(job){
+  const checks = [];
+  for (const r of job.reqs){
+    if (r.type === undefined){ checks.push(true); continue; }
+    if (r.type === 'school')  checks.push(!!S.schoolDone);
+    if (r.type === 'courses') checks.push(!!S.coursesDone);
+    if (r.type === 'edu')     checks.push(!!S.eduDone);
+    if (r.type === 'pc')      checks.push(!!S.hasPC);
+    if (r.type === 'energy')  checks.push(S.food > r.value);
+  }
+  return checks.every(Boolean);
+}
+function doctorPrice(){ return S.medCard ? 1500 : 3000; }
+function clinicPrice(){ return S.medCard ? 7500 : 15000; }
+
+/* ---------------------------------------------------------------------------
+   6. ЖУРНАЛ
+--------------------------------------------------------------------------- */
+function addLog(text, type='info'){
+  S.log.unshift({ text, type, age: S.age, mon: S.monthIdx + 1 });
+  if (S.log.length > 40) S.log.length = 40;
+}
+
+/* ---------------------------------------------------------------------------
+   7. ЯДРО: ХОД «ПРОЖИТЬ 1 МЕСЯЦ»
+--------------------------------------------------------------------------- */
+let S = null; // текущее состояние (инициируется в Game.boot)
+
+/* Публичный фасад для HTML-атрибутов onclick="Game.playMonth()" */
+const Game = { playMonth(){ playMonth(); } };
+
+function playMonth(){
+  if (!S.alive) return;
+
+  // 1) Время
+  S.monthIdx++;
+  if (S.monthIdx >= 12){ S.monthIdx = 0; S.age++; }
+
+  // Школа: аттестат на ходу 18-летия
+  if (!S.schoolDone && S.age >= 18){
+    S.schoolDone = true;
+    addLog('🎒 Вы получили аттестат! Открыта помощь повара в пиццерии.', 'good');
+  }
+
+  // Больница: месяц восстановления вместо обычной жизни
+  if (S.inHospital){
+    S.health = clamp(S.health + 35);
+    S.mood   = clamp(S.mood - 10);
+    S.inHospital = false;
+    addLog('🏥 Месяц в больнице: здоровье +35%, настроение −10%. Вас выписали.', 'info');
+    finishMonth();
+    return;
+  }
+
+  // 2) Расходы (еда + жильё + работа "на себя")
+  const exp = monthlyExpenses();
+  if (exp > 0){
+    S.money -= exp;
+    S.totalSpent += exp;
+  }
+
+  // 3) Доходы: зарплата + пассив
+  const job = curJob();
+  let earned = 0;
+  if (job){
+    if (job.energyReq > 0 && S.food <= job.energyReq){
+      addLog('😮‍💨 Не хватило сил на работу «' + job.name + '» — прогуляли месяц, зарплаты нет.', 'bad');
+    } else {
+      earned += job.salary;
+      S.food  = clamp(S.food - job.foodCost);
+      S.mood  = clamp(S.mood - job.moodCost);
+    }
+  }
+  const pas = passiveIncome();
+  earned += pas;
+  if (earned > 0){ S.money += earned; S.totalEarned += earned; }
+
+  // 4) Сытость: базовые −15% + эффект рациона (сытость может уйти в отрицательную
+  //      «яму голода» — оттуда её медленно «отъедают»; на шкале видно 0%)
+  const f = curFood(), h = curHome();
+  S.food = Math.max(-60, S.food - 15 + f.food);
+
+  // 5) Голодание бьёт по здоровью: за каждый недостающий до нуля процент сытости
+  if (S.food <= 0){
+    const hungerDamage = clamp(25 + (-S.food) * 0.5);
+    S.health = clamp(S.health - hungerDamage);
+    addLog('🍽️ Вы голодаете! Здоровье −' + hungerDamage + '%.', 'bad');
+  } else {
+    if (f.health) S.health = clamp(S.health + f.health);
+  }
+
+  // Жильё влияет на здоровье и настроение
+  if (h.health) S.health = clamp(S.health + h.health);
+  if (h.mood)   S.mood   = clamp(S.mood + h.mood);
+
+  // Настроение: безработица/бедность давят, деньги радуют
+  if (!job && pas === 0 && S.age >= 18) S.mood = clamp(S.mood - 5);
+  if (S.money < 0) S.mood = clamp(S.mood - 5);
+
+  // Диагнозы тянут здоровье вниз
+  if (S.diagnoses.length > 0) S.health = clamp(S.health - 4 * S.diagnoses.length);
+
+  // 6) Случайное событие (25% шанс каждый ход)
+  if (Math.random() < 0.25){
+    const ev = pickRandomEvent();
+    let txt = ev.txt;
+    if (ev.money){
+      S.money += ev.money;
+      if (ev.money > 0){ S.totalEarned += ev.money; } else { S.totalSpent += -ev.money; }
+    }
+    if (ev.food)  S.food  = clamp(S.food + ev.food);
+    if (ev.health) S.health = clamp(S.health + ev.health);
+    if (ev.mood)  S.mood  = clamp(S.mood + ev.mood);
+    addLog(txt, ev.good ? 'good' : 'bad');
+  }
+
+  // Обучение идёт своим чередом
+  if (S.coursesMonths > 0){
+    S.coursesMonths--;
+    if (S.coursesMonths === 0){
+      S.coursesDone = true;
+      addLog('🎉 Онлайн-курсы IT/Бизнеса окончены! Открыты менеджер и веб-разработка.', 'good');
+    } else {
+      addLog('📖 Вы учитесь на онлайн-курсах, осталось ' + monthsLabel(S.coursesMonths) + '.', 'info');
+    }
+  }
+  if (S.uniYear > 0 && S.uniYear < 4){
+    S.money -= 5000; // ~60 000 ₽/год равными частями
+    S.totalSpent += 5000;
+    S.uniYear++;
+    if (S.uniYear >= 4){
+      S.eduDone = true;
+      addLog('🎓 Диплом университета получен! Открыта должность руководителя филиала.', 'good');
+    } else {
+      addLog('🏛️ Вы учитесь в вузе: ' + (S.uniYear+1) + '-й курс из 4.', 'info');
+    }
+  }
+
+  finishMonth();
+}
+
+function finishMonth(){
+  // Обновляем флаг бедности
+  S.isPoor = isPoorState();
+
+  // 7) Кризис здоровья → POP-UP
+  if (S.health <= 0 && S.alive){
+    renderAll();
+    Save.save(S);
+    Modal.showCrisis();
+    return;
+  }
+
+  // 8) Старость: 75+ — с каждым годом растет шанс мирной кончины (5% + 5%/год, кап 60%)
+  if (S.age >= 75){
+    const chance = Math.min(0.60, 0.05 + (S.age - 75) * 0.05);
+    if (Math.random() < chance){
+      S.alive = false;
+      S.causeOfDeath = 'Мирная кончина от старости в возрасте ' + yearsLabel(S.age) + '.';
+      addLog('🕊️ Вы умерли спокойно, прожив полную жизнь.', 'info');
+      renderAll(); Save.save(S); Modal.showFinal();
+      return;
+    }
+  }
+
+  renderAll();
+  Save.save(S);
+  Yx.gameReady();
+}
+
+function pickRandomEvent(){
+  const pool = [];
+  for (const ev of RANDOM_EVENTS){
+    let w = ev.w;
+    if (S.lucky && ev.good) w *= 2;
+    for (let i=0;i<w;i++) pool.push(ev);
+  }
+  return pool[Math.floor(Math.random()*pool.length)];
+}
+
+/* ---------------------------------------------------------------------------
+   8. ДЕЙСТВИЯ ВКЛАДОК (каждое = маленькое временнóе усилие + автосейв)
+--------------------------------------------------------------------------- */
+function afterAction(){
+  S.actionsTaken++;
+  S.isPoor = isPoorState();
+  renderAll();
+  Save.save(S);
+}
+
+const Actions = {
+  hire(id){
+    const job = JOBS.find(j=>j.id===id);
+    if (!job || S.job === id) return;
+    if (!jobUnlocked(job)){ toast('❌ Не выполнены условия должности'); return; }
+    if (S.job) addLog('🔄 Вы уволились с «' + curJob().name + '» ради «' + job.name + '».', 'info');
+    S.job = id;
+    addLog('✅ Вы устроились: ' + job.name + ' (' + fmtMoney(job.salary) + '/мес).', 'money');
+    afterAction();
+  },
+  fire(){
+    if (!S.job) return;
+    addLog('📦 Вы уволились с должности «' + curJob().name + '».', 'info');
+    S.job = null;
+    afterAction();
+  },
+  setFood(id){
+    const f = FOODS.find(x=>x.id===id); if (!f) return;
+    S.foodPlan = id;
+    addLog('🍽️ Рацион на месяц: ' + f.name + '.', 'info');
+    afterAction();
+  },
+  setHome(id){
+    const h = HOMES.find(x=>x.id===id); if (!h) return;
+    if (h.id === 'own' && !S.ownsApartment){ Actions.buyApartment(); return; }
+    if (h.id === 'own' && S.ownsApartment){ S.homePlan='own'; addLog('🏢 Вы живёте в собственной квартире.', 'good'); afterAction(); return; }
+    S.homePlan = id;
+    addLog('🏠 Переехали: ' + h.name + ' (' + (h.price ? fmtMoney(h.price) + '/мес' : 'бесплатно') + ').', 'info');
+    afterAction();
+  },
+  buyApartment(){
+    if (S.ownsApartment) return;
+    if (S.money < 4000000){ toast('❌ Нужно ' + fmtMoney(4000000) + ' на счету'); return; }
+    S.money -= 4000000; S.totalSpent += 4000000;
+    S.ownsApartment = true; S.homePlan = 'own';
+    addLog('🏆 Куплена собственная квартира за 4 000 000 ₽! Жильё теперь бесплатное.', 'money');
+    afterAction();
+  },
+  startCourses(){
+    if (S.coursesDone){ toast('✅ Курсы уже окончены'); return; }
+    if (S.coursesMonths > 0){ toast('⏳ Вы уже учитесь: осталось ' + monthsLabel(S.coursesMonths)); return; }
+    if (!S.schoolDone){ toast('❌ Сначала закончите школу (18 лет)'); return; }
+    if (S.money < 25000){ toast('❌ Не хватает денег (нужно 25 000 ₽)'); return; }
+    S.money -= 25000; S.totalSpent += 25000; S.coursesMonths = 6;
+    addLog('💻 Поступили на онлайн-курсы IT/Бизнеса. Срок — 6 месяцев.', 'info');
+    afterAction();
+  },
+  enrollUni(){
+    if (S.eduDone){ toast('✅ Высшее уже есть'); return; }
+    if (S.uniYear > 0){ toast('⏳ Вы уже студент: ' + (S.uniYear+1) + '-й курс'); return; }
+    if (!S.schoolDone){ toast('❌ Нужен школьный аттестат (18 лет)'); return; }
+    if (S.money < 60000){ toast('❌ Первый год стоит 60 000 ₽'); return; }
+    S.money -= 60000; S.totalSpent += 60000; S.uniYear = 1;
+    addLog('🏛️ Вы поступили в университет! Оплата 60 000 ₽/год, срок — 4 года.', 'info');
+    afterAction();
+  },
+  callDoctor(){
+    const p = doctorPrice();
+    if (S.money < p && S.money >= 0){ toast('❌ Врач стоит ' + fmtMoney(p)); return; }
+    if (S.health >= 100 && S.diagnoses.length === 0){ toast('Вы полностью здоровы'); return; }
+    S.money -= p; S.totalSpent += p;
+    S.health = clamp(S.health + 25);
+    if (S.diagnoses.length && Math.random() < 0.5){
+      const d = S.diagnoses.pop();
+      addLog('🩺 Врач выявил и вылечил диагноз: «' + d + '». Здоровье +25%.', 'good');
+    } else {
+      addLog('🩺 Вызов врача: здоровье +25% за ' + fmtMoney(p) + '.', 'good');
+    }
+    afterAction();
+  },
+  goClinic(){
+    const p = clinicPrice();
+    if (S.money < p && S.money >= 0){ toast('❌ Клиника стоит ' + fmtMoney(p)); return; }
+    if (S.health >= 100 && S.diagnoses.length === 0){ toast('Вы полностью здоровы'); return; }
+    S.money -= p; S.totalSpent += p;
+    S.health = clamp(S.health + 60);
+    if (S.diagnoses.length){
+      addLog('🏥 Платная клиника: сняты все диагнозы (' + S.diagnoses.join(', ') + '), здоровье +60%.', 'good');
+      S.diagnoses = [];
+    } else {
+      addLog('🏥 Платная клиника: полный чекап, здоровье +60%.', 'good');
+    }
+    afterAction();
+  },
+  walkPark(){
+    S.mood = clamp(S.mood + 15);
+    S.food = clamp(S.food - 3);
+    addLog('🌳 Прогулка в парке: настроение +15%.', 'good');
+    afterAction();
+  },
+  playGames(){
+    if (!S.hasPC){ toast('❌ Нужен личный компьютер (магазин 💎 или вкладка Развитие)'); return; }
+    const bonus = S.hasConsole ? 10 : 0;
+    S.mood = clamp(S.mood + 35 + bonus);
+    S.food = clamp(S.food - 5);
+    addLog('🎮 Видеоигры: настроение +' + (35+bonus) + '%.', 'good');
+    afterAction();
+  },
+  seaTrip(){
+    if (S.money < 70000 && S.money >= 0){ toast('❌ Поездка стоит 70 000 ₽'); return; }
+    S.money -= 70000; S.totalSpent += 70000;
+    const bonus = S.hasConsole ? 10 : 0;
+    S.mood = clamp(S.mood + 80 + bonus);
+    S.health = clamp(S.health + 10);
+    addLog('🏖️ Поездка на море: настроение +' + (80+bonus) + '%, здоровье +10%.', 'money');
+    afterAction();
+  },
+  buyBusiness(id){
+    const b = BUSINESSES.find(x=>x.id===id); if (!b) return;
+    if (S.money < b.price){ toast('❌ Не хватает денег: нужно ' + fmtMoney(b.price)); return; }
+    S.money -= b.price; S.totalSpent += b.price;
+    S.businesses[id] = (S.businesses[id] || 0) + 1;
+    addLog('📈 Куплен бизнес: ' + b.name + ' (+' + fmtMoney(b.income) + '/мес пассивно).', 'money');
+    afterAction();
+  },
+  buyBoost(id){
+    const it = SHOP_BOOSTS.find(x=>x.id===id); if (!it) return;
+    if (!it.repeat && S[it.id === 'pc' ? 'hasPC' : it.id === 'console' ? 'hasConsole' : it.id === 'medcard' ? 'medCard' : 'lucky']){
+      toast('✅ Этот буст уже активен'); return;
+    }
+    if (S.money < it.price){ toast('❌ Не хватает ' + fmtMoney(it.price)); return; }
+    S.money -= it.price; S.totalSpent += it.price;
+    it.effect(S);
+    addLog('💎 Покупка в магазине: ' + it.name + '.', 'money');
+    afterAction();
+    UI.openShop(); // обновляем окно магазина
+  }
+};
+
+/* ---------------------------------------------------------------------------
+   9. ОТРИСОВКА UI
+--------------------------------------------------------------------------- */
+function fillClass(v){
+  if (v >= 60) return 'f-green';
+  if (v >= 40) return 'f-lime';
+  if (v >= 25) return 'f-yellow';
+  if (v >= 12) return 'f-orange';
+  return 'f-red';
+}
+function textColor(v){
+  if (v >= 60) return 't-green';
+  if (v >= 40) return 't-lime';
+  if (v >= 25) return 't-yellow';
+  if (v >= 12) return 't-orange';
+  return 't-red';
+}
+
+function renderHeader(){
+  const file = avatarFile(S), meta = avatarFallbackMeta(S);
+  mountAvatar($('main-avatar'), file, meta.cls, meta.ch);
+  $('hud-name').textContent = S.name;
+  $('hud-age').textContent = yearsLabel(S.age) + ' ' + monthsLabel(S.monthIdx);
+  const st = statusLine();
+  if (st.indexOf('Без работы') === -1 && !S.inHospital) S.bestStatus = st;
+  $('hud-status').textContent = st;
+  const bal = $('hud-balance');
+  bal.textContent = fmtMoney(S.money);
+  bal.classList.toggle('neg', S.money < 0);
+  const p = passiveIncome();
+  const chip = $('hud-passive');
+  chip.style.display = p > 0 ? '' : 'none';
+  chip.textContent = '+' + fmtMoney(p) + '/мес';
+}
+
+function renderStats(){
+  // Сытость может быть в «яме голода» (отрицательный скрытый долг) — на шкале всегда 0..100%
+  const map = [['food',clamp(S.food)],['health',S.health],['mood',S.mood]];
+  for (const [k,v] of map){
+    const bar = $('bar-'+k), val = $('val-'+k);
+    bar.style.width = v + '%';
+    bar.className = 'fill ' + fillClass(v);
+    val.textContent = v + '%';
+    val.className = 'stat-val ' + textColor(v);
+  }
+}
+
+function renderLog(){
+  const box = $('event-log');
+  box.innerHTML = '';
+  const items = S.log.slice(0, 4);
+  if (!items.length){
+    box.innerHTML = '<div class="ev info"><span class="ev-date">Старт</span> Жизнь началась. Удачного пути!</div>';
+    return;
+  }
+  for (const e of items){
+    const d = document.createElement('div');
+    d.className = 'ev ' + e.type;
+    d.innerHTML = '<span class="ev-date">' + e.age + ' г., ' + e.mon + ' мес.</span>' + esc(e.text);
+    box.appendChild(d);
+  }
+}
+
+/* ---- Вкладка РАБОТА ---- */
+function renderWorkPage(){
+  const groups = [
+    ['🌃 Улица', 'street'],
+    ['🌱 Начальная', 'entry'],
+    ['🚀 Карьера', 'career']
+  ];
+  let html = '';
+  for (const [title, cat] of groups){
+    html += '<div class="group-head">' + title + '</div>';
+    for (const job of JOBS.filter(j=>j.cat===cat)){
+      const active = S.job === job.id;
+      const unlocked = jobUnlocked(job);
+      let chips = '';
+      for (const r of job.reqs){
+        if (r.type === undefined){ chips += '<span class="chip ok">' + esc(r.txt) + '</span>'; continue; }
+        let ok = false;
+        if (r.type==='school') ok = !!S.schoolDone;
+        if (r.type==='courses') ok = !!S.coursesDone;
+        if (r.type==='edu') ok = !!S.eduDone;
+        if (r.type==='pc') ok = !!S.hasPC;
+        if (r.type==='energy') ok = S.food > r.value;
+        chips += '<span class="chip ' + (ok?'ok':'no') + '">' + (ok?'✓ ':'✗ ') + esc(r.txt) + '</span>';
+      }
+      let btn;
+      if (active){
+        btn = '<button class="btn btn-fire" onclick="Actions.fire()">Уволиться</button>';
+      } else if (unlocked){
+        btn = '<button class="btn btn-hire" onclick="Actions.hire(\'' + job.id + '\')">Устроиться</button>';
+      } else {
+        btn = '<button class="btn btn-disabled">Недоступно</button>';
+      }
+      html +=
+      '<div class="card' + (active?' card-activejob':'') + '">' +
+        '<div class="card-top"><div class="card-title">' + job.icon + ' ' + esc(job.name) + '</div>' +
+        '<div class="card-income">+' + fmtMoney(job.salary) + '/мес</div></div>' +
+        '<div class="card-desc">' + esc(job.desc) + '</div>' +
+        '<div class="chips">' + chips + '</div>' +
+        '<div class="card-actions">' + btn + '</div>' +
+      '</div>';
+    }
+  }
+  $('page-work').innerHTML = html;
+}
+
+/* ---- Вкладка БЫТ ---- */
+function renderHomePage(){
+  let html = '<div class="group-head">🍽️ Ежемесячный рацион</div>';
+  for (const f of FOODS){
+    const sel = S.foodPlan === f.id;
+    html +=
+    '<div class="card' + (sel?' card-activejob':'') + '">' +
+      '<div class="card-top"><div class="card-title">' + f.icon + ' ' + f.name + '</div>' +
+      '<div class="card-income' + (f.price?'':' zero') + '">' + (f.price ? fmtMoney(f.price) + '/мес' : '0 ₽') + '</div></div>' +
+      '<div class="card-desc">' + f.desc + ' · Сытость ' + sign(f.food) + '% · Здоровье ' + sign(f.health) + '%' + (f.mood ? ' · Настроение ' + sign(f.mood) + '%' : '') + '</div>' +
+      '<div class="card-actions"><button class="btn ' + (sel?'btn-on':'btn-sel') + '" onclick="Actions.setFood(\'' + f.id + '\')">' + (sel?'✓ Выбрано':'Выбрать') + '</button></div>' +
+    '</div>';
+  }
+  html += '<div class="group-head">🏠 Жильё</div>';
+  for (const h of HOMES){
+    const sel = S.homePlan === h.id;
+    const own = h.id === 'own';
+    let btn;
+    if (own){
+      if (S.ownsApartment) btn = '<button class="btn btn-on" onclick="Actions.setHome(\'own\')">' + (sel?'✓ Вы здесь':'Переехать в свою') + '</button>';
+      else if (S.money >= 4000000) btn = '<button class="btn btn-buy" onclick="Actions.buyApartment()">Купить за ' + fmtMoney(4000000) + '</button>';
+      else btn = '<button class="btn btn-disabled">Нужно ' + fmtMoney(4000000) + '</button>';
+    } else {
+      btn = '<button class="btn ' + (sel?'btn-on':'btn-sel') + '" onclick="Actions.setHome(\'' + h.id + '\')">' + (sel?'✓ Вы здесь':'Переехать') + '</button>';
+    }
+    html +=
+    '<div class="card' + (sel?' card-activejob':'') + '">' +
+      '<div class="card-top"><div class="card-title">' + h.icon + ' ' + h.name + '</div>' +
+      '<div class="card-income' + (h.price?'':' zero') + '">' + (own ? (S.ownsApartment?'Собственность':'Разовая покупка') : (h.price ? fmtMoney(h.price) + '/мес' : '0 ₽')) + '</div></div>' +
+      '<div class="card-desc">' + h.desc + ' · Здоровье ' + sign(h.health) + '% · Настроение ' + sign(h.mood) + '%</div>' +
+      '<div class="card-actions">' + btn + '</div>' +
+    '</div>';
+  }
+  html += '<div class="group-head">🧮 Экономика месяца</div>' +
+    '<div class="card"><div class="row-line"><span>Расходы (еда + жильё)</span><b style="color:#f87171">−' + fmtMoney(monthlyExpenses()) + '</b></div>' +
+    '<div class="row-line"><span>Зарплата</span><b style="color:#34d399">' + (curJob() ? '+' + fmtMoney(curJob().salary) : '0 ₽') + '</b></div>' +
+    '<div class="row-line" style="border-bottom:none"><span>Пассивный доход</span><b style="color:#fbbf24">' + (passiveIncome()?'+':'') + fmtMoney(passiveIncome()) + '</b></div></div>';
+  $('page-home').innerHTML = html;
+}
+function sign(v){ return (v>0?'+':(v<0?'−':'0')) + Math.abs(v); }
+
+/* ---- Вкладка РАЗВИТИЕ ---- */
+function renderDevPage(){
+  let html = '<div class="group-head">🎓 Образование</div>';
+
+  // Курсы
+  let coursesState;
+  if (S.coursesDone) coursesState = '<span class="chip gold">✓ Окончены</span>';
+  else if (S.coursesMonths > 0) coursesState = '<span class="chip">Идёт обучение: осталось ' + monthsLabel(S.coursesMonths) + '</span>';
+  else coursesState = '<span class="chip">6 месяцев · 25 000 ₽</span>';
+  let coursesBtn;
+  if (S.coursesDone) coursesBtn = '<button class="btn btn-disabled">Готово</button>';
+  else if (S.coursesMonths > 0){
+    const done = (6 - S.coursesMonths)/6*100;
+    coursesBtn = '<div style="flex:1"><div class="progress-mini"><div class="fill" style="width:' + done + '%"></div></div><div class="mini-note" style="margin-top:5px">Прогресс ' + Math.round(done) + '%</div></div>';
+  }
+  else if (!S.schoolDone) coursesBtn = '<button class="btn btn-disabled">Нужна школа (18 лет)</button>';
+  else coursesBtn = '<button class="btn ' + (S.money>=25000?'btn-buy':'btn-disabled') + '" onclick="Actions.startCourses()">Поступить · 25 000 ₽</button>';
+  html += '<div class="card"><div class="card-title">💻 Онлайн-курсы IT/Бизнеса</div>' +
+    '<div class="card-desc">Открывают «Младшего менеджера» и «Веб-разработчика», ускоряют рост дохода.</div>' +
+    '<div class="chips">' + coursesState + '</div><div class="card-actions">' + coursesBtn + '</div></div>';
+
+  // Универ
+  let uniState;
+  if (S.eduDone) uniState = '<span class="chip gold">✓ Диплом получен</span>';
+  else if (S.uniYear > 0) uniState = '<span class="chip">' + (S.uniYear+1) + '-й курс из 4 · 60 000 ₽/год</span>';
+  else uniState = '<span class="chip">4 года · 60 000 ₽/год</span>';
+  let uniBtn;
+  if (S.eduDone) uniBtn = '<button class="btn btn-disabled">Готово</button>';
+  else if (S.uniYear > 0){
+    const done = S.uniYear/4*100;
+    uniBtn = '<div style="flex:1"><div class="progress-mini"><div class="fill" style="width:' + done + '%"></div></div><div class="mini-note" style="margin-top:5px">Прогресс ' + Math.round(done) + '%</div></div>';
+  }
+  else if (!S.schoolDone) uniBtn = '<button class="btn btn-disabled">Нужен аттестат (18 лет)</button>';
+  else uniBtn = '<button class="btn ' + (S.money>=60000?'btn-buy':'btn-disabled') + '" onclick="Actions.enrollUni()">Поступить · 60 000 ₽</button>';
+  html += '<div class="card"><div class="card-title">🏛️ Университет (вышка)</div>' +
+    '<div class="card-desc">Диплом открывает «Руководителя филиала» (+350 000 ₽/мес).</div>' +
+    '<div class="chips">' + uniState + '</div><div class="card-actions">' + uniBtn + '</div></div>';
+
+  // Медицина
+  html += '<div class="group-head">🩺 Медицина</div>';
+  if (S.diagnoses.length){
+    html += '<div class="card"><div class="card-title">🧪 Ваши диагнозы</div><div class="chips">' +
+      S.diagnoses.map(d=>'<span class="chip no">'+esc(d)+' (−4%/мес)</span>').join('') + '</div></div>';
+  }
+  html += '<div class="card"><div class="card-title">👨‍⚕️ Вызов врача</div>' +
+    '<div class="card-desc">Быстрая помощь: +25% здоровья. Есть шанс вылечить диагноз.</div>' +
+    '<div class="card-actions"><button class="btn ' + (S.money>=doctorPrice()||S.money<0?'btn-sel':'btn-disabled') + '" onclick="Actions.callDoctor()">Вызвать · ' + fmtMoney(doctorPrice()) + (S.medCard?' <span style="font-size:11px">(−50% по медкарте)</span>':'') + '</button></div></div>';
+  html += '<div class="card"><div class="card-title">🏥 Платная клиника</div>' +
+    '<div class="card-desc">Полный чекап: +60% здоровья и снятие ВСЕХ диагнозов.</div>' +
+    '<div class="card-actions"><button class="btn ' + (S.money>=clinicPrice()||S.money<0?'btn-buy':'btn-disabled') + '" onclick="Actions.goClinic()">Лечиться · ' + fmtMoney(clinicPrice()) + '</button></div></div>';
+
+  // Отдых
+  html += '<div class="group-head">😌 Отдых</div>';
+  html += '<div class="card"><div class="card-title">🌳 Прогулка в парке</div><div class="card-desc">Бесплатно: +15% настроения.</div>' +
+    '<div class="card-actions"><button class="btn btn-sel" onclick="Actions.walkPark()">Гулять · 0 ₽</button></div></div>';
+  html += '<div class="card"><div class="card-title">🎮 Видеоигры</div><div class="card-desc">Нужен ПК (купите в магазине 💎): +35% настроения' + (S.hasConsole?' (+консоль: +45%)':'') + '.</div>' +
+    '<div class="card-actions">' + (S.hasPC ? '<button class="btn btn-sel" onclick="Actions.playGames()">Играть</button>' : '<button class="btn btn-disabled">Нужен компьютер</button>') + '</div></div>';
+  html += '<div class="card"><div class="card-title">🏖️ Поездка на море</div><div class="card-desc">Мощная перезагрузка: +80% настроения, +10% здоровья.</div>' +
+    '<div class="card-actions"><button class="btn ' + ((S.money>=70000||S.money<0)?'btn-buy':'btn-disabled') + '" onclick="Actions.seaTrip()">Отправиться · 70 000 ₽</button></div></div>';
+
+  $('page-dev').innerHTML = html;
+}
+
+/* ---- Вкладка БИЗНЕС ---- */
+function renderBizPage(){
+  let html = '<div class="group-head">🏪 Пассивный доход</div>';
+  for (const b of BUSINESSES){
+    const cnt = S.businesses[b.id] || 0;
+    html +=
+    '<div class="card' + (cnt?' card-owned':'') + '">' +
+      '<div class="card-top"><div class="card-title">' + b.icon + ' ' + b.name + '</div>' +
+      '<div class="card-income">+' + fmtMoney(b.income) + '/мес</div></div>' +
+      '<div class="card-desc">' + b.desc + '</div>' +
+      (cnt ? '<div class="chips"><span class="chip gold">В собственности: ' + cnt + ' шт · +' + fmtMoney(cnt*b.income) + '/мес</span></div>' : '') +
+      '<div class="card-actions"><button class="btn ' + (S.money>=b.price?'btn-buy':'btn-disabled') + '" onclick="Actions.buyBusiness(\'' + b.id + '\')">' + (cnt?'Купить ещё':'Купить') + ' · ' + fmtMoney(b.price) + '</button></div>' +
+    '</div>';
+  }
+  const p = passiveIncome();
+  html += '<div class="group-head">💰 Итог</div><div class="card"><div class="row-line" style="border-bottom:none"><span>Суммарный пассивный доход</span><b style="color:#fbbf24">' + fmtMoney(p) + '/мес</b></div></div>';
+  $('page-biz').innerHTML = html;
+}
+
+function renderAll(){
+  renderHeader();
+  renderStats();
+  renderLog();
+  renderWorkPage();
+  renderHomePage();
+  renderDevPage();
+  renderBizPage();
+}
+
+/* ---------------------------------------------------------------------------
+   10. МОДАЛЬНЫЕ ОКНА (кризис, настройки, магазин, итоги)
+--------------------------------------------------------------------------- */
+const Modal = {
+  open(html){
+    $('modal-body').innerHTML = html;
+    $('modal-back').classList.add('open');
+  },
+  close(){
+    $('modal-back').classList.remove('open');
+  },
+  showCrisis(){
+    this.open(
+      '<div class="crisis-icon">🚑</div>' +
+      '<h2 class="danger-title">КРИТИЧЕСКОЕ СОСТОЯНИЕ</h2>' +
+      '<div class="m-sub">Здоровье упало до нуля. «' + esc(S.name) + '» экстренно госпитализирован(а)! Выбор спасения:</div>' +
+      '<div class="card"><div class="card-title">📺 Посмотреть рекламу</div>' +
+      '<div class="card-desc">VIP-реанимация: мгновенно +50% здоровья и +50% сытости.</div>' +
+      '<div class="card-actions"><button class="btn btn-buy" id="crisis-ad">Смотреть рекламу ▶</button></div></div>' +
+      '<div class="card"><div class="card-title">🏥 Лечь в больницу</div>' +
+      '<div class="card-desc">Штраф 20 000 ₽. Месяц в стационаре: +35% здоровья, но минус месяц жизни. Нет денег — смерть.</div>' +
+      '<div class="card-actions"><button class="btn btn-fire" id="crisis-hosp">Оплатить 20 000 ₽</button></div></div>'
+    );
+    $('crisis-ad').onclick = () => {
+      $('crisis-ad').textContent = 'Загрузка рекламы…';
+      Yx.showReward((ok) => {
+        if (ok){
+          S.health = clamp(S.health + 50);
+          S.food = clamp(S.food + 50);
+          addLog('📺 VIP-реанимация после рекламы: +50% здоровья и сытости!', 'good');
+          this.close(); afterAction();
+        } else {
+          toast('Реклама не просмотрена — выберите больницу');
+        }
+      });
+    };
+    $('crisis-hosp').onclick = () => {
+      if (S.money < 20000){
+        S.alive = false;
+        S.causeOfDeath = 'Смерть в больнице: не хватило 20 000 ₽ на лечение.';
+        addLog('💀 Деньгов на лечение не нашлось…', 'bad');
+        this.close(); renderAll(); Save.save(S); this.showFinal();
+        return;
+      }
+      S.money -= 20000; S.totalSpent += 20000;
+      S.inHospital = true;
+      S.health = 20; // стабилизировали на нулевой отметке
+      addLog('🏥 Вы легли в больницу со штрафом 20 000 ₽.', 'bad');
+      this.close(); afterAction();
+    };
+  },
+  showSettings(){
+    this.open(
+      '<h2>⚙️ Настройки</h2>' +
+      '<div class="final-stats">' +
+        '<div class="row-line"><span>Звук игры</span><button class="btn btn-sel" style="flex:0 0 auto;padding:7px 14px" id="snd-toggle">' + (Sound.on ? '🔊 Вкл' : '🔇 Выкл') + '</button></div>' +
+        '<div class="row-line"><span>Сохранение</span><b style="color:#4ade80">Авто ✅</b></div>' +
+        '<div class="row-line"><span>Версия</span><b>v1.0</b></div>' +
+        '<div class="row-line" style="border-bottom:none"><span>Прожито месяцев</span><b>' + ((S.age-14)*12 + S.monthIdx) + '</b></div>' +
+      '</div>' +
+      '<button class="btn btn-fire" id="reset-btn">🔄 Начать жизнь заново</button>' +
+      '<button class="m-close" onclick="Modal.close()">Закрыть</button>'
+    );
+    $('snd-toggle').onclick = () => { Sound.toggle(); $('snd-toggle').textContent = Sound.on ? '🔊 Вкл' : '🔇 Выкл'; };
+    $('reset-btn').onclick = () => {
+      if (confirm('Вы уверены? Весь прогресс этой жизни будет стёрт безвозвратно!')){
+        Save.clear();
+        location.reload();
+      }
+    };
+  },
+  showShop(){
+    let html = '<h2>💎 Магазин и бусты</h2><div class="m-sub">Улучшения, которые меняют правила игры. Баланс: <b style="color:#34d399">' + fmtMoney(S.money) + '</b></div>';
+    for (const it of SHOP_BOOSTS){
+      const ownedOnce = !it.repeat && (
+        (it.id==='pc'&&S.hasPC)||(it.id==='console'&&S.hasConsole)||(it.id==='medcard'&&S.medCard)||(it.id==='luck'&&S.lucky)
+      );
+      html += '<div class="shop-item"><div><div class="si-t">' + it.name + (ownedOnce?' <span class="chip gold">Активен</span>':'') + '</div><div class="si-d">' + it.desc + '</div></div>' +
+        (ownedOnce ? '<button class="btn btn-disabled" style="flex:0 0 auto;padding:9px 13px">✓</button>' :
+          '<button class="btn ' + (S.money>=it.price?'btn-buy':'btn-disabled') + '" style="flex:0 0 auto;padding:9px 13px" onclick="Actions.buyBoost(\'' + it.id + '\')">' + fmtMoney(it.price) + '</button>') +
+        '</div>';
+    }
+    html += '<button class="m-close" onclick="Modal.close()">Закрыть</button>';
+    this.open(html);
+  },
+  showFinal(){
+    const monthsLived = (S.age-14)*12 + S.monthIdx;
+    const bizCount = Object.values(S.businesses).reduce((a,b)=>a+b,0);
+    let rank;
+    if (S.money >= 5000000) rank = '👑 Олигард';
+    else if (S.money >= 1000000) rank = '💎 Капиталист';
+    else if (S.money >= 300000) rank = '🏆 Состоятельный гражданин';
+    else if (S.money >= 0) rank = '🙂 Обычный человек';
+    else rank = '🥀 Банкрот';
+    this.open(
+      '<div class="crisis-icon">🪦</div>' +
+      '<h2>ЭКРАН ИТОГОВ ЖИЗНИ</h2>' +
+      '<div class="m-sub">' + esc(S.causeOfDeath || 'Жизнь завершена.') + '</div>' +
+      '<div class="final-stats">' +
+        '<div class="row-line"><span>Имя</span><b>' + esc(S.name) + '</b></div>' +
+        '<div class="row-line"><span>Прожили</span><b>' + yearsLabel(S.age) + ' (' + monthsLived + ' мес. в игре)</b></div>' +
+        '<div class="row-line"><span>Заработано всего</span><b style="color:#34d399">' + fmtMoney(S.totalEarned) + '</b></div>' +
+        '<div class="row-line"><span>Потрачено всего</span><b style="color:#f87171">' + fmtMoney(S.totalSpent) + '</b></div>' +
+        '<div class="row-line"><span>Финальный баланс</span><b>' + fmtMoney(S.money) + '</b></div>' +
+        '<div class="row-line"><span>Кем стали</span><b>' + esc(S.bestStatus || 'Кем-то') + '</b></div>' +
+        '<div class="row-line"><span>Бизнесов куплено</span><b>' + bizCount + '</b></div>' +
+        '<div class="row-line" style="border-bottom:none"><span>Итоговый ранг</span><b>' + rank + '</b></div>' +
+      '</div>' +
+      '<button class="btn btn-primary" style="max-width:none" onclick="Save.clear();location.reload()">🌱 Прожить новую жизнь</button>'
+    );
+  }
+};
+$('modal-back').addEventListener('click', (e) => {
+  // Закрытие по клику на затемнение — только для неблокирующих окон
+  if (e.target === $('modal-back') && S && !S.alive) return; // экран смерти не закрывается
+  if (e.target === $('modal-back') && S && S.health <= 0 && !S.inHospital) return; // кризис обязателен
+  Modal.close();
+});
+
+/* ---------------------------------------------------------------------------
+   11. ЗВУК (WebAudio, без внешних файлов)
+--------------------------------------------------------------------------- */
+const Sound = {
+  on: true, ctx: null,
+  ensure(){ try{ if(!this.ctx) this.ctx = new (window.AudioContext||window.webkitAudioContext)(); }catch(e){} },
+  blip(freq, dur=0.08, type='triangle', gain=0.05){
+    if(!this.on) return;
+    this.ensure(); if(!this.ctx) return;
+    try{
+      const o=this.ctx.createOscillator(), g=this.ctx.createGain();
+      o.type=type;o.frequency.value=freq;g.gain.setValueAtTime(gain,this.ctx.currentTime);
+      g.gain.exponentialRampToValueAtTime(0.0001,this.ctx.currentTime+dur);
+      o.connect(g);g.connect(this.ctx.destination);o.start();o.stop(this.ctx.currentTime+dur);
+    }catch(e){}
+  },
+  click(){ this.blip(520,.06); },
+  cash(){ this.blip(880,.09,'square',.04); setTimeout(()=>this.blip(1175,.12,'square',.04),90); },
+  bad(){ this.blip(180,.2,'sawtooth',.05); },
+  toggle(){ this.on=!this.on; try{localStorage.setItem(SAVE_KEY+'_snd',this.on?'1':'0');}catch(e){} this.click(); }
+};
+try{ const sv = localStorage.getItem(SAVE_KEY+'_snd'); if(sv!==null) Sound.on = sv==='1'; }catch(e){}
+
+/* ---------------------------------------------------------------------------
+   12. UI-КОНТРОЛЛЕР (табы, экраны)
+--------------------------------------------------------------------------- */
+const UI = {
+  switchTab(name){
+    document.querySelectorAll('.tab').forEach(t=>t.classList.toggle('on', t.dataset.tab===name));
+    document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
+    $('page-'+name).classList.add('active');
+    Sound.click();
+  },
+  openSettings(){ Sound.click(); Modal.showSettings(); },
+  openShop(){ Sound.click(); Modal.showShop(); },
+  showScreen(id){
+    document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));
+    $(id).classList.add('active');
+  }
+};
+
+/* ---------------------------------------------------------------------------
+   13. ЭКРАН СТАРТА
+--------------------------------------------------------------------------- */
+const StartScreen = {
+  gender: 'boy',
+  pickGender(g){
+    this.gender = g;
+    $('g-boy').classList.toggle('sel', g==='boy');
+    $('g-girl').classList.toggle('sel', g==='girl');
+    const inp = $('inp-name');
+    if (!inp.dataset.edited) inp.placeholder = g==='boy' ? 'Алексей' : 'Анна';
+    Sound.click();
+  },
+  begin(){
+    const raw = $('inp-name').value.trim();
+    const name = raw.length ? raw.slice(0,16) : (this.gender==='boy' ? 'Алексей' : 'Анна');
+    S = newGameState(this.gender, name);
+    S.isPoor = isPoorState();
+    addLog('🌱 ' + name + ', вам 14 лет. Впереди целая жизнь! Выберите еду, жильё и первую работу на улице.', 'good');
+    Save.save(S);
+    bootIntoGame();
+    Sound.cash();
+  }
+};
+
+/* ---------------------------------------------------------------------------
+   14. ЗАГРУЗКА ИГРЫ
+--------------------------------------------------------------------------- */
+function bootIntoGame(){
+  UI.showScreen('screen-game');
+  renderAll();
+  Yx.gameReady();
+}
+function boot(){
+  // Превью аватаров на экране выбора (с фоллбэком)
+  mountAvatar($('prev-boy-holder'), 'avatar_boy_teen.png', '', '👦');
+  mountAvatar($('prev-girl-holder'), 'avatar_girl_teen.png', '', '👧');
+  $('inp-name').addEventListener('input', e=>{ e.target.dataset.edited='1'; });
+
+  const saved = Save.load();
+  if (saved && saved.alive){
+    S = saved;
+    S.isPoor = isPoorState();
+    bootIntoGame();
+  } else if (saved && !saved.alive){
+    // Сохранение с умершим персонажем — показываем финал поверх старта
+    S = saved;
+    S.isPoor = isPoorState();
+    bootIntoGame();
+    Modal.showFinal();
+  } else {
+    UI.showScreen('screen-start');
+  }
+  Yx.init();
+}
+
+/* Перехват кликов для звука + защита от двойных тапов на мобильных */
+document.addEventListener('pointerdown', (e)=>{
+  const b = e.target.closest && e.target.closest('button');
+  if (b && !b.classList.contains('btn-disabled')) Sound.click();
+}, {passive:true});
+
+window.addEventListener('error', ()=>{ /* тихая деградация: игра не должна ронять UI */ });
+
+boot();
+</script>
+</body>
+</html>
